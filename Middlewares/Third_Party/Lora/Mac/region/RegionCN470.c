@@ -761,7 +761,7 @@ bool RegionCN470NextChannel( NextChanParams_t* nextChanParams, uint8_t* channel,
     if( nbEnabledChannels > 0 )
     {
         // We found a valid channel
-        *channel = enabledChannels[randr( 0, nbEnabledChannels - 1 )];
+        *channel = randr(80, 87); //enabledChannels[randr( 0, nbEnabledChannels - 1 )];
 
         *time = 0;
         return true;

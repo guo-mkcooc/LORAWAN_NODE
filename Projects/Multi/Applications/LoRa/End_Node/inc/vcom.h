@@ -70,7 +70,20 @@ Maintainer: Miguel Luis and Gregory Cristian
 /* Exported constants --------------------------------------------------------*/
 /* External variables --------------------------------------------------------*/
 
-/* Exported functions ------------------------------------------------------- */ 
+/* Exported functions ------------------------------------------------------- */
+
+typedef struct Recv_list_s
+{
+    uint8_t rf[12][12];
+    uint8_t cnt;
+    bool lock;
+} Recv_list_t;
+
+typedef enum eRfidState {
+    RFID_STATE_INIT,
+    RFID_STATE_SCANING,
+    RFID_STATE_IDLE
+} RfidState_t;
 
 /** 
 * @brief  Init the VCOM.
@@ -79,51 +92,67 @@ Maintainer: Miguel Luis and Gregory Cristian
 */
 void vcom_Init(void);
 
-   /** 
+/**
 * @brief  DeInit the VCOM.
 * @param  None
 * @return None
 */
 void vcom_DeInit(void);
 
-   /** 
+/**
 * @brief  Init the VCOM IOs.
 * @param  None
 * @return None
 */
 void vcom_IoInit(void);
-  
-   /** 
+
+/**
 * @brief  DeInit the VCOM IOs.
 * @param  None
 * @return None
 */
 void vcom_IoDeInit(void);
-  
-/** 
+
+/**
 * @brief  Records string on circular Buffer and set SW interrupt
 * @note   Set NVIC to call vcom_Send
 * @param  string
 * @return None
 */
-void vcom_Send( char *format, ... );
+void vcom_Send(char *format, ...);
 
-/** 
+/**
 * @brief  Sends circular Buffer on com port in IT mode
 * @note   called from low Priority interrupt
 * @param  None
 * @return None
 */
-void vcom_Print( void);
+void vcom_Print(void);
 
-/** 
+/**
 * @brief  Records string on circular Buffer
 * @note   To be called only from critical section from low power section
 *         Other wise use vcom_Send
 * @param  string
 * @return None
 */
-void vcom_Send_Lp( char *format, ... );
+void vcom_Send_Lp(char *format, ...);
+
+void rfid_reader(void);
+
+void rfid_set(void);
+
+void rfid_IoDeInit(void);
+
+void rfid_IoInit(void);
+
+void rfid_DeInit(void);
+
+void rfid_Init(void);
+
+void led_on(void);
+
+void led_off(void);
 
 /* Exported macros -----------------------------------------------------------*/
 #if 1
@@ -131,6 +160,7 @@ void vcom_Send_Lp( char *format, ... );
 #else
 #define PRINTF(...)
 #endif
+
 
 
 #ifdef __cplusplus

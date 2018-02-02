@@ -113,7 +113,9 @@ void HW_Init( void )
     HW_RTC_Init( );
     
     vcom_Init( );
-    
+
+    rfid_Init( );
+
     BSP_sensor_Init( );
 
     McuInitialized = true;
@@ -132,6 +134,8 @@ void HW_DeInit( void )
   Radio.IoDeInit( );
 
   vcom_DeInit( ); 
+
+  rfid_DeInit( );
 
   McuInitialized = false;
 }

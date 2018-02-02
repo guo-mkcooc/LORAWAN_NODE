@@ -141,9 +141,9 @@ Maintainer: Miguel Luis and Gregory Cristian
 
 
 #define USARTX                           USART2
-#define USARTX_CLK_ENABLE()              __USART2_CLK_ENABLE();
+#define USARTX_CLK_ENABLE()              __USART2_CLK_ENABLE()
 #define USARTX_RX_GPIO_CLK_ENABLE()      __GPIOA_CLK_ENABLE()
-#define USARTX_TX_GPIO_CLK_ENABLE()      __GPIOA_CLK_ENABLE() 
+#define USARTX_TX_GPIO_CLK_ENABLE()      __GPIOA_CLK_ENABLE()
 
 #define USARTX_FORCE_RESET()             __USART2_FORCE_RESET()
 #define USARTX_RELEASE_RESET()           __USART2_RELEASE_RESET()
@@ -151,10 +151,10 @@ Maintainer: Miguel Luis and Gregory Cristian
 
 /* Definition for USARTx Pins */
 #define USARTX_TX_PIN                  GPIO_PIN_2
-#define USARTX_TX_GPIO_PORT            GPIOA  
+#define USARTX_TX_GPIO_PORT            GPIOA
 #define USARTX_TX_AF                   GPIO_AF7_USART2
 #define USARTX_RX_PIN                  GPIO_PIN_3
-#define USARTX_RX_GPIO_PORT            GPIOA 
+#define USARTX_RX_GPIO_PORT            GPIOA
 #define USARTX_RX_AF                   GPIO_AF7_USART2
 
 /* Definition for USARTx's NVIC */
@@ -165,6 +165,29 @@ Maintainer: Miguel Luis and Gregory Cristian
 
 #define __HAL_RCC_DBGMCU_CLK_ENABLE()
 #define __HAL_RCC_DBGMCU_CLK_DISABLE()
+
+/* -------------------------- USART definition for Rfidreader -----------------------*/
+
+#define USARTr                           USART1
+#define USARTr_CLK_ENABLE()              __USART1_CLK_ENABLE()
+#define USARTr_RX_GPIO_CLK_ENABLE()      __GPIOA_CLK_ENABLE()
+#define USARTr_TX_GPIO_CLK_ENABLE()      __GPIOA_CLK_ENABLE()
+
+#define USARTr_FORCE_RESET()             __USART2_FORCE_RESET()
+#define USARTr_RELEASE_RESET()           __USART2_RELEASE_RESET()
+
+
+#define USARTr_TX_PIN                  GPIO_PIN_9
+#define USARTr_TX_GPIO_PORT            GPIOA
+#define USARTr_TX_AF                   GPIO_AF7_USART1
+#define USARTr_RX_PIN                  GPIO_PIN_10
+#define USARTr_RX_GPIO_PORT            GPIOA
+#define USARTr_RX_AF                   GPIO_AF7_USART1
+
+/* Definition for USARTx's NVIC */
+#define USARTr_IRQn                      USART1_IRQn
+#define USARTr_IRQHandler                USART1_IRQHandler
+
 
 #define LED_Toggle( x )
 #define LED_On( x )

@@ -108,6 +108,10 @@ Maintainer: Miguel Luis, Gregory Cristian and Wael Guibene
 /* Private macro -------------------------------------------------------------*/
 /* Private function prototypes -----------------------------------------------*/
 
+static RfidState_t RfidState = RFID_STATE_INIT;
+
+static TimerEvent_t RfidScanTimer;
+
 /* call back when LoRa will transmit a frame*/
 static void LoraTxData( lora_AppData_t *AppData, FunctionalState* IsTxConfirmed);
 
@@ -127,6 +131,7 @@ static LoRaMainCallback_t LoRaMainCallbacks ={ HW_GetBatteryLevel,
  */
 static uint8_t AppLedStateOn = RESET;
 
+extern Recv_list_t recv_list;
 
 #ifdef USE_B_L072Z_LRWAN1
 /*!
@@ -153,6 +158,55 @@ static  LoRaParam_t LoRaParamInit= {TX_ON_TIMER,
   * @param  None
   * @retval None
   */
+
+void OnRfidScanTimerEvent(void)
+{
+  // PRINTF("DEVICE OnRfidScanTimerEvent : [");
+  TimerStop(&RfidScanTimer);
+  PRINTF("DEVICE OnRfidScanTimerEvent rlist %d : [", recv_list.cnt);
+  for (uint8_t i = 0; i < 2; i++)
+  {
+    for (uint8_t j = 0; j < 12; j++) {
+      PRINTF("%02X ", recv_list.rf[i][j]);
+    }
+  }
+  PRINTF("]\r\n");
+
+  RfidState = RFID_STATE_SCANING;
+
+}
+
+void rfid_fsm(void)
+{
+  switch (RfidState){
+    case RFID_STATE_INIT:
+    {
+      TimerInit(&RfidScanTimer, OnRfidScanTimerEvent);
+
+      RfidState = RFID_STATE_SCANING;
+      break;
+    }
+    case RFID_STATE_SCANING:
+    {
+
+      rfid_set( );
+      PRINTF("rfid_readering  ..\r\n");
+      rfid_reader( );
+      TimerSetValue(&RfidScanTimer, 2000); /* 5s */
+
+      TimerStart(&RfidScanTimer);
+
+      PRINTF("rfid_reader  done ..\r\n");
+      RfidState = RFID_STATE_IDLE;
+      break;
+    }
+    case RFID_STATE_IDLE:
+    {
+      break;
+    }
+  }
+}
+
 int main( void )
 {
   /* STM32 HAL library initialization*/
@@ -174,23 +228,37 @@ int main( void )
   lora_Init( &LoRaMainCallbacks, &LoRaParamInit);
   
   PRINTF("VERSION: %X\n\r", VERSION);
-  
+
+  // rfid_set();
+  // PRINTF("rfid_reader ..\r\n");
+  // rfid_reader( );
+
   /* main loop*/
+
+  PRINTF("loop .. \r\n");
+  int cl = 0;
   while( 1 )
   {
+
+    rfid_fsm();
+    cl++;
+    if (cl == 1000000) {
+      PRINTF("LOOP ...... \r\n");
+      cl =0;
+    }
     /* run the LoRa class A state machine*/
     lora_fsm( );
     
-    DISABLE_IRQ( );
-    /* if an interrupt has occurred after DISABLE_IRQ, it is kept pending 
-     * and cortex will not enter low power anyway  */
-    if ( lora_getDeviceState( ) == DEVICE_STATE_SLEEP )
-    {
-#ifndef LOW_POWER_DISABLE
-      LowPower_Handler( );
-#endif
-    }
-    ENABLE_IRQ();
+//     DISABLE_IRQ( );
+//     /* if an interrupt has occurred after DISABLE_IRQ, it is kept pending
+//      * and cortex will not enter low power anyway  */
+//     if ( lora_getDeviceState( ) == DEVICE_STATE_SLEEP )
+//     {
+// #ifndef LOW_POWER_DISABLE
+//       LowPower_Handler( );
+// #endif
+//     }
+//     ENABLE_IRQ();
     
     /* USER CODE BEGIN 2 */
     /* USER CODE END 2 */
@@ -201,110 +269,86 @@ static void LoraTxData( lora_AppData_t *AppData, FunctionalState* IsTxConfirmed)
 {
   PRINTF("LoRaTxData \n\r");
   /* USER CODE BEGIN 3 */
-  uint16_t pressure = 0;
-  int16_t temperature = 0;
-  uint16_t humidity = 0;
-  uint8_t batteryLevel;
-  sensor_t sensor_data;
   
-#ifdef USE_B_L072Z_LRWAN1
-  TimerInit( &TxLedTimer, OnTimerLedEvent );
-  
-  TimerSetValue(  &TxLedTimer, 200);
-  
-  LED_On( LED_RED1 ) ; 
-  
-  TimerStart( &TxLedTimer );  
-#endif
-#ifndef CAYENNE_LPP
-  int32_t latitude, longitude = 0;
-  uint16_t altitudeGps = 0;
-#endif
-  BSP_sensor_Read( &sensor_data );
+  uint8_t i = 0;
+  recv_list.lock = true;
 
-#ifdef CAYENNE_LPP
-  uint8_t cchannel=0;
-  temperature = ( int16_t )( sensor_data.temperature * 10 );     /* in �C * 10 */
-  pressure    = ( uint16_t )( sensor_data.pressure * 100 / 10 );  /* in hPa / 10 */
-  humidity    = ( uint16_t )( sensor_data.humidity * 2 );        /* in %*2     */
-  uint32_t i = 0;
+  uint8_t cnt = recv_list.cnt;
+  if ((cnt != 0) && (cnt < 7)) {
+    AppData->Buff[i++] = 0xC3;
+    AppData->Buff[i++] = cnt;
+    for (uint8_t c = 0; c < cnt; c++){
+      // memcpy1(AppData->Buff[i], &recv_list.rf[c][0], 12);
 
-  batteryLevel = HW_GetBatteryLevel( );                     /* 1 (very low) to 254 (fully charged) */
+        for (uint8_t j = 0; j < 12; j++)
+        {
+          AppData->Buff[i++] = recv_list.rf[c][j];
+        }
 
-  AppData->Port = LPP_APP_PORT;
-  
-  *IsTxConfirmed =  LORAWAN_CONFIRMED_MSG;
-  AppData->Buff[i++] = cchannel++;
-  AppData->Buff[i++] = LPP_DATATYPE_BAROMETER;
-  AppData->Buff[i++] = ( pressure >> 8 ) & 0xFF;
-  AppData->Buff[i++] = pressure & 0xFF;
-  AppData->Buff[i++] = cchannel++;
-  AppData->Buff[i++] = LPP_DATATYPE_TEMPERATURE; 
-  AppData->Buff[i++] = ( temperature >> 8 ) & 0xFF;
-  AppData->Buff[i++] = temperature & 0xFF;
-  AppData->Buff[i++] = cchannel++;
-  AppData->Buff[i++] = LPP_DATATYPE_HUMIDITY;
-  AppData->Buff[i++] = humidity & 0xFF;
-#if defined( REGION_US915 ) || defined( REGION_US915_HYBRID ) || defined ( REGION_AU915 )
-  /* The maximum payload size does not allow to send more data for lowest DRs */
-#else
-  AppData->Buff[i++] = cchannel++;
-  AppData->Buff[i++] = LPP_DATATYPE_DIGITAL_INPUT; 
-  AppData->Buff[i++] = batteryLevel*100/254;
-  AppData->Buff[i++] = cchannel++;
-  AppData->Buff[i++] = LPP_DATATYPE_DIGITAL_OUTPUT; 
-  AppData->Buff[i++] = AppLedStateOn;
-#endif  /* REGION_XX915 */
-#else  /* not CAYENNE_LPP */
+    }
 
-  temperature = ( int16_t )( sensor_data.temperature * 100 );     /* in �C * 100 */
-  pressure    = ( uint16_t )( sensor_data.pressure * 100 / 10 );  /* in hPa / 10 */
-  humidity    = ( uint16_t )( sensor_data.humidity * 10 );        /* in %*10     */
-  latitude = sensor_data.latitude;
-  longitude= sensor_data.longitude;
-  uint32_t i = 0;
+    for (uint8_t p = 0; p < 12; p++)
+    {
+      for (uint8_t j = 0; j < 12; j++)
+      {
+        recv_list.rf[p][j] = 0;
+      }
+    }
+    AppData->BuffSize = i;
 
-  batteryLevel = HW_GetBatteryLevel( );                     /* 1 (very low) to 254 (fully charged) */
+    recv_list.cnt = 0;
+
+  }
+
+  if (cnt > 7) {
+    AppData->Buff[i++] = 0xC3;
+    AppData->Buff[i++] = 6;
+    for (uint8_t c = 0; c < 6; c++)
+    {
+      memcpy1((uint8_t *)AppData->Buff[i], &recv_list.rf[c][0], 12);
+      i += 12;
+    }
+
+    AppData->BuffSize = i;
+
+    // memcpy1(&recv_list.rf[0], &recv_list.rf[6], (cnt - 6) * 12);
+    for (uint8_t p = 0; p < cnt; p++)
+    {
+      for (uint8_t j = 0; j < 12; j++)
+      {
+        recv_list.rf[p][j] = recv_list.rf[p+6][j];
+      }
+    }
+
+    for (uint8_t p = 0; p < (cnt -6); p++) {
+      for(uint8_t j = 0; j < 12; j++) {
+        recv_list.rf[p-6][j] = 0;
+      }
+    }
+
+    recv_list.cnt = cnt - 6;
+  }
+
+  if (cnt == 0) {
+    AppData->Buff[i++] = 'P';
+    AppData->Buff[i++] = 'I';
+    AppData->Buff[i++] = 'N';
+    AppData->Buff[i++] = 'G';
+
+    AppData->BuffSize = i;
+  }
 
   AppData->Port = LORAWAN_APP_PORT;
-  
-  *IsTxConfirmed =  LORAWAN_CONFIRMED_MSG;
 
-#if defined( REGION_US915 ) || defined( REGION_US915_HYBRID ) || defined ( REGION_AU915 )
-  AppData->Buff[i++] = AppLedStateOn;
-  AppData->Buff[i++] = ( pressure >> 8 ) & 0xFF;
-  AppData->Buff[i++] = pressure & 0xFF;
-  AppData->Buff[i++] = ( temperature >> 8 ) & 0xFF;
-  AppData->Buff[i++] = temperature & 0xFF;
-  AppData->Buff[i++] = ( humidity >> 8 ) & 0xFF;
-  AppData->Buff[i++] = humidity & 0xFF;
-  AppData->Buff[i++] = batteryLevel;
-  AppData->Buff[i++] = 0;
-  AppData->Buff[i++] = 0;
-  AppData->Buff[i++] = 0;
-#else  /* not REGION_XX915 */
-  AppData->Buff[i++] = AppLedStateOn;
-  AppData->Buff[i++] = ( pressure >> 8 ) & 0xFF;
-  AppData->Buff[i++] = pressure & 0xFF;
-  AppData->Buff[i++] = ( temperature >> 8 ) & 0xFF;
-  AppData->Buff[i++] = temperature & 0xFF;
-  AppData->Buff[i++] = ( humidity >> 8 ) & 0xFF;
-  AppData->Buff[i++] = humidity & 0xFF;
-  AppData->Buff[i++] = batteryLevel;
-  AppData->Buff[i++] = ( latitude >> 16 ) & 0xFF;
-  AppData->Buff[i++] = ( latitude >> 8 ) & 0xFF;
-  AppData->Buff[i++] = latitude & 0xFF;
-  AppData->Buff[i++] = ( longitude >> 16 ) & 0xFF;
-  AppData->Buff[i++] = ( longitude >> 8 ) & 0xFF;
-  AppData->Buff[i++] = longitude & 0xFF;
-  AppData->Buff[i++] = ( altitudeGps >> 8 ) & 0xFF;
-  AppData->Buff[i++] = altitudeGps & 0xFF;
-#endif  /* REGION_XX915 */
-#endif  /* CAYENNE_LPP */
-  AppData->BuffSize = i;
-  
+  *IsTxConfirmed = LORAWAN_CONFIRMED_MSG;
+
+  recv_list.lock = false;
   /* USER CODE END 3 */
-  PRINTF("LoRatx: %d port: %d  %s\n\r", AppData->BuffSize, AppData->Port, AppData->Buff);
+  PRINTF("*****LoRatx: %d port: %d  [", AppData->BuffSize, AppData->Port);
+  for (uint8_t p = 0; p < i; p++){
+    PRINTF("%02X ", AppData->Buff[p]);
+  }
+  PRINTF("]\r\n");
 }
 
 static void LoraRxData( lora_AppData_t *AppData )
