@@ -133,6 +133,8 @@ static uint8_t AppLedStateOn = RESET;
 
 extern Recv_list_t recv_list;
 
+#define RFID_SCAN_TIME        100   //100 ms
+
 #ifdef USE_B_L072Z_LRWAN1
 /*!
  * Timer to handle the application Tx Led to toggle
@@ -164,7 +166,7 @@ void OnRfidScanTimerEvent(void)
   // PRINTF("DEVICE OnRfidScanTimerEvent : [");
   TimerStop(&RfidScanTimer);
   PRINTF("DEVICE OnRfidScanTimerEvent rlist %d : [", recv_list.cnt);
-  for (uint8_t i = 0; i < 2; i++)
+  for (uint8_t i = 0; i < 5; i++)
   {
     for (uint8_t j = 0; j < 12; j++) {
       PRINTF("%02X ", recv_list.rf[i][j]);
@@ -192,7 +194,7 @@ void rfid_fsm(void)
       rfid_set( );
       PRINTF("rfid_readering  ..\r\n");
       rfid_reader( );
-      TimerSetValue(&RfidScanTimer, 2000); /* 5s */
+      TimerSetValue(&RfidScanTimer, RFID_SCAN_TIME); /* 1s */
 
       TimerStart(&RfidScanTimer);
 
@@ -236,16 +238,16 @@ int main( void )
   /* main loop*/
 
   PRINTF("loop .. \r\n");
-  int cl = 0;
+  // int cl = 0;
   while( 1 )
   {
 
     rfid_fsm();
-    cl++;
-    if (cl == 1000000) {
-      PRINTF("LOOP ...... \r\n");
-      cl =0;
-    }
+    // cl++;
+    // if (cl == 1000000) {
+    //   PRINTF("LOOP ...... \r\n");
+    //   cl =0;
+    // }
     /* run the LoRa class A state machine*/
     lora_fsm( );
     
@@ -300,19 +302,23 @@ static void LoraTxData( lora_AppData_t *AppData, FunctionalState* IsTxConfirmed)
 
   }
 
-  if (cnt > 7) {
+  if (cnt >= 7) {
     AppData->Buff[i++] = 0xC3;
     AppData->Buff[i++] = 6;
     for (uint8_t c = 0; c < 6; c++)
     {
-      memcpy1((uint8_t *)AppData->Buff[i], &recv_list.rf[c][0], 12);
-      i += 12;
+      // memcpy1((uint8_t *)AppData->Buff[i], &recv_list.rf[c][0], 12);
+      // i += 12;
+      for (uint8_t j = 0; j < 12; j++)
+      {
+        AppData->Buff[i++] = recv_list.rf[c][j];
+      }
     }
 
     AppData->BuffSize = i;
 
     // memcpy1(&recv_list.rf[0], &recv_list.rf[6], (cnt - 6) * 12);
-    for (uint8_t p = 0; p < cnt; p++)
+    for (uint8_t p = 0; p < cnt - 6; p++)
     {
       for (uint8_t j = 0; j < 12; j++)
       {
@@ -320,9 +326,9 @@ static void LoraTxData( lora_AppData_t *AppData, FunctionalState* IsTxConfirmed)
       }
     }
 
-    for (uint8_t p = 0; p < (cnt -6); p++) {
+    for (uint8_t p = 1; p < 7; p++) {
       for(uint8_t j = 0; j < 12; j++) {
-        recv_list.rf[p-6][j] = 0;
+        recv_list.rf[cnt-p][j] = 0;
       }
     }
 
